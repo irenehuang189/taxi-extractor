@@ -1,4 +1,5 @@
 var S = require('string');
+var fs = require('fs');
 var textract = require('textract');
 var filePath = 'source_data/12/30 12.pdf'
 var config = {pdftotextOptions: {layout: 'raw'}};
@@ -7,9 +8,63 @@ var status = textract.fromFileWithPath(filePath, config, function(error, text) {
   if(error != null) {
     console.log(error);
   } else {
-    parseText(text);
+    var records = parseText(text);
+    convertToCSV(records);
   }
 });
+
+function convertToCSV(records) {
+  // console.log('-------------COMPREHENSIVE OPERATION RECORDS-------------');
+  var operationJson = JSON.stringify(records.operation);
+
+  // console.log('\n\n\n-------------ANALYSIS OF HIRED DETAILS-------------');
+  var hiredJson = JSON.stringify(records.hired);
+
+  // console.log('\n\n\n-------------ANALYSIS OF ENGINE OPERATION-------------');
+  var engineOperationJson = JSON.stringify(records.engine_operation);
+
+  // console.log('\n\n\n-------------ANALYSIS OF LONG WAITINGS-------------');
+  var longWaitingJson = JSON.stringify(records.long_waiting);
+
+  // console.log('\n\n\n-------------ANALYSIS OF OVER SPEEDS-------------');
+  var overSpeedJson = JSON.stringify(records.over_speed);
+
+  saveToFile('operation.csv', jsonToCSV(operationJson));
+  saveToFile('transaction.csv', jsonToCSV(hiredJson));
+  saveToFile('engine_operation.csv', jsonToCSV(engineOperationJson));
+  saveToFile('long_waiting.csv', jsonToCSV(longWaitingJson));
+  saveToFile('over_speed.csv', jsonToCSV(overSpeedJson));
+}
+
+function saveToFile(filename, text) {
+  var filePath = __dirname + '/csv/' + filename;
+
+  fs.appendFile(filePath, text, function(err) {
+    if(err) {
+      return console.log(err);
+    }
+
+    console.log("File " + filename + ' has been saved.');
+  });
+}
+
+function jsonToCSV(objArray) {
+  var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
+  var str = '';
+
+  for (var i = 0; i < array.length; i++) {
+      var line = '';
+      for (var index in array[i]) {
+          if (line != '') line += ','
+
+          line += array[i][index];
+      }
+
+      str += line + '\r\n';
+  }
+
+  return str;
+}
 
 function parseText(text) {
   var titles = ['COMPREHENSIVE OPERATION RECORDS', 'ANALYSIS OF HIRED DETAILS', 'ANALYSIS OF ENGINE OPERATION', 'ANALYSIS OF LONG WAITINGS', 'ANALYSIS OF OVER SPEEDS'];
@@ -18,7 +73,7 @@ function parseText(text) {
   indices.sort(compareIndex);
   sections = getSectionData(text, indices);
 
-  parseSectionData(sections);
+  return parseSectionData(sections);
 }
 
 function getSectionIndices(text, titles) {
@@ -102,20 +157,13 @@ function parseSectionData(sections) {
     }
   }
 
-  console.log('-------------COMPREHENSIVE OPERATION RECORDS-------------');
-  console.log(operationRecords);
-
-  console.log('\n\n\n-------------ANALYSIS OF HIRED DETAILS-------------');
-  console.log(hiredRecords);
-
-  console.log('\n\n\n-------------ANALYSIS OF ENGINE OPERATION-------------');
-  console.log(engineOperationRecords);
-
-  console.log('\n\n\n-------------ANALYSIS OF LONG WAITINGS-------------');
-  console.log(longWaitingRecords);
-
-  console.log('\n\n\n-------------ANALYSIS OF OVER SPEEDS-------------');
-  console.log(overSpeedRecords);
+  return {
+    operation       : operationRecords,
+    hired           : hiredRecords,
+    engine_operation: engineOperationRecords,
+    long_waiting    : longWaitingRecords,
+    over_speed      : overSpeedRecords
+  };
 }
 
 function parseOperationRecords(text, periodId) {
@@ -131,12 +179,22 @@ function parseOperationRecords(text, periodId) {
     // Data hired details tidak ada, sehingga format get on rate berubah
     getOnRate = S(text).between('Get on %% : ', '%').s;
   }
+  if(hiredRate == '**.**') {
+    hiredRate = '-999';
+  }
+  if(amountPerKm == '***') {
+    amountPerKm = '-999';
+  }
+  if(getOnRate == '**.**'){
+    getOnRate = '-999';
+  }
+
   return {
     taxi_id       : taxiNumber,
     period_id     : periodId,
     start_datetime: startTime,
     end_datetime  : endTime,
-    amount_per_km : amountPerKm,
+    amount_per_km : amountPerKm.replace(',', ''),
     hired_rate    : hiredRate,
     get_on_rate   : getOnRate
   };
@@ -156,11 +214,13 @@ function parseHiredRecords(text, periodId, start) {
 
   var lastEmptyDistance = S(text).between('-- ', ' ').s;
   var record = {
-    transaction_id  : '0',
     period_id       : periodId,
+    transaction_id  : '0',
     empty_distance  : lastEmptyDistance,
     get_on_datetime : datetimeToString(startDatetime),
-    get_off_datetime: datetimeToString(startDatetime)
+    get_off_datetime: datetimeToString(startDatetime),
+    paid_distance   : '',
+    amount          : ''
   };
 
   records.push(record);
@@ -193,13 +253,13 @@ function parseHiredRecord(values, periodId, baseTime) {
 
   return {
     record: {
-      transaction_id  : values[0],
       period_id       : periodId,
+      transaction_id  : values[0],
       empty_distance  : values[1],
       get_on_datetime : datetimeToString(getOnDatetime),
       get_off_datetime: datetimeToString(getOffDatetime),
       paid_distance   : values[3],
-      amount          : values[4]
+      amount          : values[4].replace(',', '')
     }, 
     time: baseTime
   };
@@ -255,8 +315,8 @@ function parseEngineOperationRecord(values, periodId, baseTime) {
 
   return {
     record: {
-      engine_op_id    : values[0],
       period_id       : periodId,
+      engine_op_id    : values[0],
       get_on_datetime : datetimeToString(getOnDatetime),
       get_off_datetime: datetimeToString(getOffDatetime),
       duration        : values[2],
@@ -307,8 +367,8 @@ function parseLongWaitingRecord(values, periodId, baseTime) {
 
   return {
     record: {
-      long_waiting_id : values[0],
       period_id       : periodId,
+      long_waiting_id : values[0],
       get_off_datetime: datetimeToString(getOffDatetime),
       get_on_datetime : datetimeToString(getOnDatetime),
       duration        : values[2],
@@ -356,8 +416,8 @@ function parseOverSpeedRecord(values, periodId, baseTime) {
 
   return {
     record: {
-      over_speed_id: values[0],
       period_id    : periodId,
+      over_speed_id: values[0],
       datetime     : datetimeToString(datetime),
       speed        : values[2],
     }, 
