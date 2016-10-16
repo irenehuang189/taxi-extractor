@@ -1,6 +1,6 @@
 var S = require('string');
 var textract = require('textract');
-var filePath = '9 7.pdf'
+var filePath = 'source_data/12/30 12.pdf'
 var config = {pdftotextOptions: {layout: 'raw'}};
 
 var status = textract.fromFileWithPath(filePath, config, function(error, text) {
@@ -10,10 +10,6 @@ var status = textract.fromFileWithPath(filePath, config, function(error, text) {
     parseText(text);
   }
 });
-
-// parseOverSpeedRecords('ANALYSIS OF OVER SPEEDS No. Time km/h No. Time km/h No. Time km/h No. Time km/h No. Time km/h No. Time km/h 1 14.10:44 101 2 10:45 106 3 17:43 118 4 17:44 123 5 15.17:45 112 6 17:46 101 7 17:47 112 8 17:48 106 ', 2, '2015-06-29 18:09');
-// parseLongWaitingRecords('ANALYSIS OF LONG WAITINGS No. Get Off-On Time Dist. No. Get Off-On Time Dist. No. Get Off-On Time Dist. 1 25.00:00-10:24 7314:24 0.00 2 16.10:24-11:08 240:44 0.00 3 26.11:08-13:55 2:47 0.00 Tot. 17557:55 0.00 AA Taksi Page.1 ', 2, '2015-06-29 18:09');
-
 
 function parseText(text) {
   var titles = ['COMPREHENSIVE OPERATION RECORDS', 'ANALYSIS OF HIRED DETAILS', 'ANALYSIS OF ENGINE OPERATION', 'ANALYSIS OF LONG WAITINGS', 'ANALYSIS OF OVER SPEEDS'];
@@ -160,7 +156,7 @@ function parseHiredRecords(text, periodId, start) {
 
   var lastEmptyDistance = S(text).between('-- ', ' ').s;
   var record = {
-    transaction_id  : '',
+    transaction_id  : '0',
     period_id       : periodId,
     empty_distance  : lastEmptyDistance,
     get_on_datetime : datetimeToString(startDatetime),
@@ -174,15 +170,15 @@ function parseHiredRecords(text, periodId, start) {
 function parseHiredRecord(values, periodId, baseTime) {
   // Parse get on time
   var stripeIndex = values[2].indexOf('-');
+  var dotIndex = values[2].indexOf('.');
   var getOnTime = S(values[2]).between('.', '-').s;
-  if(getOnTime != '') {
+  if(dotIndex != -1) {
     var date = values[2].slice(0, values[2].indexOf('.'));
     baseTime.setDate(date);
-  } else {
-    getOnTime = values[2].slice(0, stripeIndex);
   }
   var hour = getHour(getOnTime);
   var minute = getMinute(getOnTime);
+  
   var getOnDatetime = new Date(baseTime.getTime());
   getOnDatetime.setHours(hour);
   getOnDatetime.setMinutes(minute);
@@ -224,9 +220,11 @@ function parseEngineOperationRecords(text, periodId, start) {
   var records = [];
   var values = recordsText.split(' ');
   for(var i=0; i<values.length; i=i+3) {
-    var result = parseEngineOperationRecord(values.slice(i, i+3), periodId, startDatetime);
-    records.push(result.record);
-    startDatetime = result.time;
+    if(i+3 < values.length) {
+      var result = parseEngineOperationRecord(values.slice(i, i+3), periodId, startDatetime);
+      records.push(result.record);
+      startDatetime = result.time;
+    }
   }
 
   return records;
@@ -235,12 +233,11 @@ function parseEngineOperationRecords(text, periodId, start) {
 function parseEngineOperationRecord(values, periodId, baseTime) {
   // Parse get on time
   var stripeIndex = values[1].indexOf('-');
+  var dotIndex = values[2].indexOf('.');
   var getOnTime = S(values[1]).between('.', '-').s;
-  if(getOnTime != '') {
+  if(dotIndex != -1) {
     var date = values[1].slice(0, values[1].indexOf('.'));
     baseTime.setDate(date);
-  } else {
-    getOnTime = values[1].slice(0, stripeIndex);
   }
   var hour = getHour(getOnTime);
   var minute = getMinute(getOnTime);
@@ -286,8 +283,9 @@ function parseLongWaitingRecords(text, periodId, start) {
 function parseLongWaitingRecord(values, periodId, baseTime) {
   // Parse get on time
   var stripeIndex = values[1].indexOf('-');
+  var dotIndex = values[2].indexOf('.');
   var getOffTime = S(values[1]).between('.', '-').s;
-  if(getOffTime != '') {
+  if(dotIndex != -1) {
     var date = values[1].slice(0, values[1].indexOf('.'));
     baseTime.setDate(date);
   } else {
@@ -375,18 +373,3 @@ function datetimeToString(date) {
     var mi = date.getMinutes();
     return '' + y + '-' + (m<=9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d) + ' ' + (h <= 9 ? '0' + h : h) + ':' + (mi <= 9 ? '0' + mi : mi);
 }
-
-// Number.prototype.padLeft = function(base,chr){
-//   var  len = (String(base || 10).length - String(this).length)+1;
-//   return len > 0? new Array(len).join(chr || '0')+this : this;
-// }
-
-// function datetimeToString(date) {
-//   dformat = [(date.getMonth()+1).padLeft(),
-//              date.getDate().padLeft(),
-//              date.getFullYear()].join('/') +' ' +
-//             [date.getHours().padLeft(),
-//              date.getMinutes().padLeft(),
-//              date.getSeconds().padLeft()].join(':');
-//   return dformat;
-// }
