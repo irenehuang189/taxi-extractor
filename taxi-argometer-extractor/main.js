@@ -3,6 +3,9 @@ var fs = require('fs');
 var textract = require('textract');
 
 main();
+// var config = {pdftotextOptions: {layout: 'raw'}};
+// var filePath = 'source_data/12/20 12.pdf';
+// parseExractFiles(filePath, config);
 
 function main() {
   var config = {pdftotextOptions: {layout: 'raw'}};
@@ -149,29 +152,43 @@ function parseSectionData(sections) {
 
   var periodId = 0;
   var startDatetime = '';
+  var isOperationNull = false;
   for(var i=0; i<sections.length; i++) {
     switch(sections[i].title) {
       case 0:
         periodId++;
         var operationRecord = parseOperationRecords(sections[i].data, periodId);
-        startDatetime = operationRecord.start_datetime;
-        operationRecords = operationRecords.concat(operationRecord);
+        if(operationRecord) {
+          isOperationNull = false;
+          startDatetime = operationRecord.start_datetime;
+          operationRecords = operationRecords.concat(operationRecord);
+        } else {
+          isOperationNull = true;
+        }
         break;
       case 1:
-        var hiredRecord = parseHiredRecords(sections[i].data, periodId, startDatetime);
-        hiredRecords = hiredRecords.concat(hiredRecord);
+        if(!isOperationNull) {
+          var hiredRecord = parseHiredRecords(sections[i].data, periodId, startDatetime);
+          hiredRecords = hiredRecords.concat(hiredRecord);
+        }
         break;
       case 2:
-        var engineOperationRecord = parseEngineOperationRecords(sections[i].data, periodId, startDatetime);
-        engineOperationRecords = engineOperationRecords.concat(engineOperationRecord);
+        if(!isOperationNull) {
+          var engineOperationRecord = parseEngineOperationRecords(sections[i].data, periodId, startDatetime);
+          engineOperationRecords = engineOperationRecords.concat(engineOperationRecord);
+        }
         break;
       case 3:
-        var longWaitingRecord = parseLongWaitingRecords(sections[i].data, periodId, startDatetime);
-        longWaitingRecords = longWaitingRecords.concat(longWaitingRecord);
+        if(!isOperationNull) {
+          var longWaitingRecord = parseLongWaitingRecords(sections[i].data, periodId, startDatetime);
+          longWaitingRecords = longWaitingRecords.concat(longWaitingRecord);
+        }
         break;
       case 4:
-        var overSpeedRecord = parseOverSpeedRecords(sections[i].data, periodId, startDatetime);
-        overSpeedRecords = overSpeedRecords.concat(overSpeedRecord);
+        if(!isOperationNull) {
+          var overSpeedRecord = parseOverSpeedRecords(sections[i].data, periodId, startDatetime);
+          overSpeedRecords = overSpeedRecords.concat(overSpeedRecord);
+        }
         break;
     }
   }
@@ -186,10 +203,24 @@ function parseSectionData(sections) {
 }
 
 function parseOperationRecords(text, periodId) {
+  var taxiNumbers = ['717','718','719','720','721','722','723','724','725','726','727','728','729','730','731','732','733','734','735','736','737','738','739','740','741','742','743','744','745','746','747','748','749','750','751','752','753','754','755','756','757','758','759','760','761','762','763','764','765','766','767','768','769','770','771','772','773','774','775','776','777','778','779','780','781','782','783','784','785','786','787','788','789','790','801','802','803','804','805','806','807','808','809','810','811','812','813','814','815','816','817','818','819','820','821','822','823','824','825','826','827','828','829','830','831','832','833','834','835','836','837','838','839','840','841','842','843','844','845','846','847','848','849','850','851','852','853','854','855','856','857','858','859','860','861','862','863','864','865','866','867','868','869','870','871','872','873','874','875','876'];
+
   var date = S(text).between('COMPREHENSIVE OPERATION RECORDS (Date : ', ' DAY)').s;
-  var taxiNumber = S(text).between('Taxi:', ' Driver').s;
+  var taxiNumber = S(text).between('Taxi:00-0', ' Driver').s;
   var startTime = S(text).between('Start:', ' End:').s;
   var endTime = S(text).between('End:', ' O/P:').s;
+
+  // Check taxi existence
+  if (taxiNumbers.indexOf(taxiNumber) == -1) {
+    return null;
+  }
+
+  // Compare date
+  var startDatetime = new Date(startTime);
+  var stopDatetime = new Date(endTime);
+  if(startDatetime > stopDatetime) {
+    return null;
+  }
 
   var amountPerKm = S(text).between('Amount/Km : ', ' T/Hours : ').s;
   var hiredRate = S(text).between('Hired Rate: ', '%').s;
@@ -228,8 +259,10 @@ function parseHiredRecords(text, periodId, start) {
   for(var i=0; i<values.length; i=i+6) {
     if(i+6 < values.length) {
       var result = parseHiredRecord(values.slice(i, i+6), periodId, startDatetime);
-      records.push(result.record);
-      startDatetime = result.time;
+      if(result) {
+        records.push(result.record);
+        startDatetime = result.time;
+      }
     }
   }
 
@@ -272,6 +305,11 @@ function parseHiredRecord(values, periodId, baseTime) {
   getOffDatetime.setHours(hour);
   getOffDatetime.setMinutes(minute);
 
+  // Check get on and get off time
+  if(getOnDatetime.getTime() === getOffDatetime.getTime()) {
+    return null;
+  }
+
   return {
     record: {
       period_id       : periodId,
@@ -303,8 +341,10 @@ function parseEngineOperationRecords(text, periodId, start) {
   for(var i=0; i<values.length; i=i+3) {
     if(i+3 < values.length) {
       var result = parseEngineOperationRecord(values.slice(i, i+3), periodId, startDatetime);
-      records.push(result.record);
-      startDatetime = result.time;
+      if(result) {
+        records.push(result.record);
+        startDatetime = result.time;
+      }
     }
   }
 
@@ -334,6 +374,10 @@ function parseEngineOperationRecord(values, periodId, baseTime) {
   getOffDatetime.setHours(hour);
   getOffDatetime.setMinutes(minute);
 
+  if(isNaN(getOffDatetime.getTime()) || isNaN(getOnDatetime.getTime())) {
+    return null;
+  }
+
   return {
     record: {
       period_id       : periodId,
@@ -355,8 +399,10 @@ function parseLongWaitingRecords(text, periodId, start) {
   for(var i=0; i<values.length; i=i+4) {
     if(i+4 < values.length) {
       var result = parseLongWaitingRecord(values.slice(i, i+4), periodId, startDatetime);
-      records.push(result.record);
-      startDatetime = result.time;
+      if(result) {
+        records.push(result.record);
+        startDatetime = result.time;
+      }
     }
   }
 
@@ -387,6 +433,10 @@ function parseLongWaitingRecord(values, periodId, baseTime) {
   var getOnDatetime = new Date(baseTime.getTime());
   getOnDatetime.setHours(hour);
   getOnDatetime.setMinutes(minute);
+
+  if(isNaN(getOffDatetime.getTime()) || isNaN(getOnDatetime.getTime())) {
+    return null;
+  }
 
   return {
     record: {
