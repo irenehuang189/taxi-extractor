@@ -54,25 +54,22 @@ public class TaxiGpsParser {
                     System.out.println("Parsing : " + file_path.getFileName());
                     try {
                         String line2 = "";
-                        String line3 = "";
                         BufferedReader br2 = new BufferedReader(new FileReader(file_path.toString()));
-                        while ((line2 = br2.readLine()) != null && (line3 = br2.readLine()) != null) {
+                        while ((line2 = br2.readLine()) != null) {
                             String data = ""; 
                             String str2[] = line2.split(",");
-                            String str3[] = line3.split(",");
-                            String start_latitude = str2[5].replaceAll("\\s+", "");
-                            String start_longitude = str2[4].replaceAll("\\s+", "");
-                            String start_datetime = str2[3];
-                            String stop_latitude = str3[5].replaceAll("\\s+", "");
-                            String stop_longitude = str3[4].replaceAll("\\s+", "");
-                            String stop_datetime = str3[3];
+                            String latitude = str2[5].replaceAll("\\s+", "");
+                            float f_latitude = Float.parseFloat(latitude);
+                            String longitude = str2[4].replaceAll("\\s+", "");
+                            float f_longitude = Float.parseFloat(longitude);
+                            String time = str2[3];
                             
                             String gps_id = str2[1].replaceAll("\\s+","");
                             String taxi_id = "";
-                            if (gps_map.containsKey(gps_id.toLowerCase())) {
+                            if (gps_map.containsKey(gps_id.toLowerCase()) && f_latitude != 0 && f_longitude != 0) {
                                 taxi_id = gps_map.get(gps_id.toLowerCase());
-                                data = taxi_id + "," + start_datetime + "," + start_latitude + "," + start_longitude + "," + stop_datetime + "," + stop_latitude + "," + stop_longitude;
-                                out.println(data);                            
+                                data = taxi_id + "," + time + "," + latitude + "," + longitude;
+                                out.println(data);                       
                             }
                         }
                         br2.close();                        

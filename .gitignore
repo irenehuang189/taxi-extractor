@@ -1,6 +1,6 @@
-taxi-argometer-extractor/source_data
-taxi-argometer-extractor/node_modules
-taxi-gps-extractor/source_data
+/taxi-argometer-extractor/source_data
+/taxi-argometer-extractor/node_modules
+/taxi-gps-parser/data/
 /taxi-gps-preprocessor/nbproject/private/
 /taxi-gps-preprocessor/build/
 /taxi-gps-parser/build/
