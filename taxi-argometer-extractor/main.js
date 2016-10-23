@@ -1,17 +1,41 @@
 var S = require('string');
 var fs = require('fs');
 var textract = require('textract');
-var filePath = 'source_data/12/30 12.pdf'
-var config = {pdftotextOptions: {layout: 'raw'}};
 
-var status = textract.fromFileWithPath(filePath, config, function(error, text) {
-  if(error != null) {
-    console.log(error);
-  } else {
-    var records = parseText(text);
-    convertToCSV(records);
+main();
+
+function main() {
+  var config = {pdftotextOptions: {layout: 'raw'}};
+  var filenames = [
+    {dir: '7', files: ['9', '10', '11', '12']},
+    {dir: '8', files: ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '27', '29', '30', '31']},
+    {dir: '9', files: ['1', '2', '3', '4', '5', '6', '7', '28']},
+    {dir: '10', files: ['1', '2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31']},
+    {dir: '11', files: ['1', '2', '4', '6', '7', '8', '9', '10', '11', '12', '13', '15', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30']},
+    {dir: '12', files: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '15', '16', '17', '18', '19', '20', '21', '23', '24', '25', '26', '27', '28', '29', '30']}
+  ];
+
+  for(var i=0; i<filenames.length; i++) {
+    var dir = filenames[i].dir;
+    var files = filenames[i].files;
+    for(var j=0; j<files.length; j++) {
+      var filePath = 'source_data/' + dir + '/' + files[j] + ' ' + dir + '.pdf';
+      parseExractFiles(filePath, config);
+    }
   }
-});
+}
+
+function parseExractFiles(filePath, config) {
+  var status = textract.fromFileWithPath(filePath, config, function(error, text) {
+    if(error != null) {
+      console.log(error);
+    } else {
+      console.log('Extracted ' + filePath + ' ' + text.length);
+      var records = parseText(text);
+      convertToCSV(records);
+    }
+  });
+}
 
 function convertToCSV(records) {
   // console.log('-------------COMPREHENSIVE OPERATION RECORDS-------------');
@@ -39,13 +63,8 @@ function convertToCSV(records) {
 function saveToFile(filename, text) {
   var filePath = __dirname + '/csv/' + filename;
 
-  fs.appendFile(filePath, text, function(err) {
-    if(err) {
-      return console.log(err);
-    }
-
-    console.log("File " + filename + ' has been saved.');
-  });
+  fs.appendFileSync(filePath, text);
+  console.log("File " + filename + ' has been saved.');
 }
 
 function jsonToCSV(objArray) {
@@ -69,7 +88,7 @@ function jsonToCSV(objArray) {
 function parseText(text) {
   var titles = ['COMPREHENSIVE OPERATION RECORDS', 'ANALYSIS OF HIRED DETAILS', 'ANALYSIS OF ENGINE OPERATION', 'ANALYSIS OF LONG WAITINGS', 'ANALYSIS OF OVER SPEEDS'];
 
-  indices = getSectionIndices(text, titles);
+  var indices = getSectionIndices(text, titles);
   indices.sort(compareIndex);
   sections = getSectionData(text, indices);
 
@@ -207,9 +226,11 @@ function parseHiredRecords(text, periodId, start) {
   var records = [];
   var values = recordsText.split(' ');
   for(var i=0; i<values.length; i=i+6) {
-    var result = parseHiredRecord(values.slice(i, i+6), periodId, startDatetime);
-    records.push(result.record);
-    startDatetime = result.time;
+    if(i+6 < values.length) {
+      var result = parseHiredRecord(values.slice(i, i+6), periodId, startDatetime);
+      records.push(result.record);
+      startDatetime = result.time;
+    }
   }
 
   var lastEmptyDistance = S(text).between('-- ', ' ').s;
@@ -332,9 +353,11 @@ function parseLongWaitingRecords(text, periodId, start) {
   var records = [];
   var values = recordsText.split(' ');
   for(var i=0; i<values.length; i=i+4) {
-    var result = parseLongWaitingRecord(values.slice(i, i+4), periodId, startDatetime);
-    records.push(result.record);
-    startDatetime = result.time;
+    if(i+4 < values.length) {
+      var result = parseLongWaitingRecord(values.slice(i, i+4), periodId, startDatetime);
+      records.push(result.record);
+      startDatetime = result.time;
+    }
   }
 
   return records;
@@ -389,9 +412,11 @@ function parseOverSpeedRecords(text, periodId, start) {
     if(values[i].match(/^[A-Za-z\s]+$/)) {
       return records;
     } else {
-      var result = parseOverSpeedRecord(values.slice(i, i+3), periodId, startDatetime);
-      records.push(result.record);
-      startDatetime = result.time;
+      if(i+3 < values.length) {
+        var result = parseOverSpeedRecord(values.slice(i, i+3), periodId, startDatetime);
+        records.push(result.record);
+        startDatetime = result.time;
+      }
     }
   }
 
