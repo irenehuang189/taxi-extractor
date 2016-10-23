@@ -143,6 +143,7 @@ function getSectionData(text, indices) {
   return sections;
 }
 
+var periodId = 0;
 function parseSectionData(sections) {
   var operationRecords = []; // COMPREHENSIVE OPERATION RECORDS
   var hiredRecords = []; // ANALYSIS OF HIRED DETAILS
@@ -150,7 +151,6 @@ function parseSectionData(sections) {
   var longWaitingRecords = []; // ANALYSIS OF LONG WAITINGS
   var overSpeedRecords = []; // ANALYSIS OF OVER SPEEDS
 
-  var periodId = 0;
   var startDatetime = '';
   var isOperationNull = false;
   for(var i=0; i<sections.length; i++) {
