@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package taksi.gps.parser;
+package taxi.gps.parser;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -24,7 +24,7 @@ import java.util.stream.Stream;
  *
  * @author nithoalif
  */
-public class TaksiGpsParser {
+public class TaxiGpsParser {
 
     /**
      * @param args the command line arguments
@@ -35,7 +35,7 @@ public class TaksiGpsParser {
         String delimiter = ",";
         
         /* Mapping Taxi <-> GPS Data */
-        BufferedReader br = new BufferedReader(new FileReader("/home/nithoalif/Downloads/IF4041/gps_map.csv"));
+        BufferedReader br = new BufferedReader(new FileReader("/home/nithoalif/Downloads/IF4041/Data Warehouse/gps_map.csv"));
         HashMap<String, String> gps_map = new HashMap<String, String>();
         while ((line = br.readLine()) != null) {
             String str[] = line.split(",");
@@ -44,11 +44,11 @@ public class TaksiGpsParser {
         
         
         /* Match GPS Data with  */
-        FileWriter fw = new FileWriter("/home/nithoalif/Downloads/IF4041/gps_data.csv", true);
+        FileWriter fw = new FileWriter("/home/nithoalif/Downloads/IF4041/Data Warehouse/gps_data.csv", true);
         BufferedWriter bw = new BufferedWriter(fw);
         PrintWriter out = new PrintWriter(bw);
         
-        try (Stream<Path> paths = Files.walk(Paths.get("/home/nithoalif/Downloads/IF4041/to_be_parsed"))) {
+        try (Stream<Path> paths = Files.walk(Paths.get("/home/nithoalif/Downloads/IF4041/Data Warehouse/GPS"))) {
             paths.forEach(file_path -> {
                 if (Files.isRegularFile(file_path)) {
                     System.out.println("Parsing : " + file_path.getFileName());
@@ -73,16 +73,18 @@ public class TaksiGpsParser {
                                 taxi_id = gps_map.get(gps_id.toLowerCase());
                                 data = taxi_id + "," + start_datetime + "," + start_latitude + "," + start_longitude + "," + stop_datetime + "," + stop_latitude + "," + stop_longitude;
                                 out.println(data);                            
-                            }                            
-                            
+                            }
                         }
+                        br2.close();                        
                     } catch (Exception ex) {
-                        Logger.getLogger(TaksiGpsParser.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(TaxiGpsParser.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    
                 }
             });
         }
+        br.close();
+        out.close();
+        bw.close();
+        fw.close();
     }
-    
 }
